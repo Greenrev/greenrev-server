@@ -1,7 +1,8 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { Notification } from "../models/Notification";
+import type { CustomReq } from "../types/auth";
 
-export const getMyNotifications = async (req: Request, res: Response): Promise<void> => {
+export const getMyNotifications = async (req: CustomReq, res: Response): Promise<void> => {
   try {
     const user = req.user;
     if (!user) {
@@ -22,7 +23,7 @@ export const getMyNotifications = async (req: Request, res: Response): Promise<v
   }
 };
 
-export const markAsRead = async (req: Request, res: Response): Promise<void> => {
+export const markAsRead = async (req: CustomReq, res: Response): Promise<void> => {
   try {
     const user = req.user;
     if (!user) {

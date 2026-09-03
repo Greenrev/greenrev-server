@@ -89,3 +89,28 @@ export async function getUserMessages(req: CustomReq, res: Response) {
     });
   }
 }
+
+export async function deleteProfile(req: CustomReq, res: Response) {
+  try {
+    const user = await User.findByIdAndDelete(req.user?.id);
+    if (!user) {
+      return sendError(res, 404, {
+        code: "NOT_FOUND",
+        message: "User not found",
+      });
+    }
+
+    // Clear cookies
+    res.clearCookie("access_token", { path: "/" });
+    res.clearCookie("refresh_token", { path: "/" });
+    res.clearCookie("csrf_token", { path: "/" });
+
+    return sendSuccess(res, 200, { message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Delete profile error:", error);
+    return sendError(res, 500, {
+      code: "INTERNAL_ERROR",
+      message: "Server error",
+    });
+  }
+}

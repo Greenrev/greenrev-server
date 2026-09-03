@@ -32,7 +32,13 @@ export function createApp() {
   app.set("trust proxy", 1);
 
   app.use(requireHttps);
-  app.use(helmet());
+  // Disable HSTS in development — it causes browsers to refuse HTTP on localhost
+  // after the first HTTPS response, which breaks cookie-based auth locally.
+  app.use(
+    helmet({
+      hsts: env.nodeEnv === "production",
+    }),
+  );
 
   app.use(
     cors({

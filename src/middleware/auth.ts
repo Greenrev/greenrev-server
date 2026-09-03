@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../utils/errors";
 import { verifyAccessToken } from "../utils/jwt";
 import { User } from "../models/User";
+import "../models/Role";
+import "../models/Permission";
 import type { CustomReq, UserRole, VerificationLevel } from "../types/auth";
 
 function extractAccessToken(req: Request): string | undefined {
@@ -73,7 +75,8 @@ export async function requireAuth(
     };
 
     next();
-  } catch {
+  } catch (error) {
+    console.error("requireAuth failed:", error);
     next(new ApiError(401, "UNAUTHENTICATED", "Authentication required"));
   }
 }
