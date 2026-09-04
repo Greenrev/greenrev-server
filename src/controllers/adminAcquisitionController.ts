@@ -61,7 +61,7 @@ export async function adminFlagAcquisition(req: CustomReq, res: Response) {
       const updated = await AcquisitionRequest.findByIdAndUpdate(
         id,
         { $set: { adminFlaggedAt: new Date(), adminFlagReason: reason.trim() } },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!updated) {
         await session.abortTransaction();
@@ -114,7 +114,7 @@ export async function adminResolveAcquisition(req: CustomReq, res: Response) {
       const updated = await AcquisitionRequest.findByIdAndUpdate(
         id,
         { $set: { adminResolvedAt: new Date(), adminResolution: resolution.trim() } },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!updated) {
         await session.abortTransaction();

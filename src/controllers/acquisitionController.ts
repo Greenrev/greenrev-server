@@ -305,7 +305,7 @@ export async function vendorAccept(req: CustomReq, res: Response) {
             vendorSeen: true,
           },
         },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!updated) {
         await session.abortTransaction();
@@ -396,7 +396,7 @@ export async function uploadReceipt(req: CustomReq, res: Response) {
             receiptUploadedAt: new Date(),
           },
         },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!updated) {
         await session.abortTransaction();
@@ -481,7 +481,7 @@ export async function vendorConfirmPayment(req: CustomReq, res: Response) {
             vendorSeen: true,
           },
         },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!updated) {
         await session.abortTransaction();
@@ -545,7 +545,7 @@ export async function customerConfirmCompleted(req: CustomReq, res: Response) {
       const updated = await AcquisitionRequest.findOneAndUpdate(
         { _id: id, customerId: req.user.id, status: "payment_confirmed" },
         { $set: { status: "completed", completedAt: new Date() } },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!updated) {
         await session.abortTransaction();

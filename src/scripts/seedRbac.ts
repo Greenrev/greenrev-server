@@ -61,7 +61,7 @@ export async function seedRbac() {
     await Permission.findOneAndUpdate(
       { name: perm.name },
       { $set: perm },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
 
@@ -120,7 +120,7 @@ export async function seedRbac() {
     await Role.findOneAndUpdate(
       { name: roleData.name },
       { $set: roleData },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
 
@@ -130,7 +130,7 @@ export async function seedRbac() {
 if (require.main === module) {
   require("dotenv").config();
   mongoose
-    .connect(process.env.MONGODB_URI as string)
+    .connect((process.env.MONGO_URI || process.env.MONGODB_URI) as string)
     .then(async () => {
       await seedRbac();
       process.exit(0);

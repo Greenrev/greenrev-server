@@ -56,7 +56,7 @@ export async function smileWebhookHandler(req: Request, res: Response): Promise<
     await VerificationRequest.findOneAndUpdate(
       { user: userId },
       { status },
-      { sort: { createdAt: -1 }, new: true },
+      { sort: { createdAt: -1 }, returnDocument: 'after' },
     );
 
     if (passed) {

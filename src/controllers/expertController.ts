@@ -101,7 +101,7 @@ export async function createExpertReview(req: CustomReq, res: Response) {
         rating,
         comment: typeof comment === "string" ? comment.trim() : "",
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     );
 
     return sendSuccess(res, 200, { review });

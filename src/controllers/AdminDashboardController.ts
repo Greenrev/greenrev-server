@@ -42,7 +42,7 @@ export async function updateUserStatus(req: CustomReq, res: Response) {
     throw new ApiError(400, "INVALID_STATUS", "Invalid status value");
   }
 
-  const user = await User.findByIdAndUpdate(id, { status }, { new: true });
+  const user = await User.findByIdAndUpdate(id, { status }, { returnDocument: 'after' });
   if (!user) {
     throw new ApiError(404, "USER_NOT_FOUND", "User not found");
   }
@@ -58,7 +58,7 @@ export async function updateUserRole(req: CustomReq, res: Response) {
     throw new ApiError(400, "INVALID_ROLE", "Invalid role value");
   }
 
-  const user = await User.findByIdAndUpdate(id, { role }, { new: true });
+  const user = await User.findByIdAndUpdate(id, { role }, { returnDocument: 'after' });
   if (!user) {
     throw new ApiError(404, "USER_NOT_FOUND", "User not found");
   }
@@ -74,7 +74,7 @@ export async function updateUserTier(req: CustomReq, res: Response) {
     throw new ApiError(400, "INVALID_TIER", "Invalid tier value");
   }
 
-  const user = await User.findByIdAndUpdate(id, { verificationLevel }, { new: true });
+  const user = await User.findByIdAndUpdate(id, { verificationLevel }, { returnDocument: 'after' });
   if (!user) {
     throw new ApiError(404, "USER_NOT_FOUND", "User not found");
   }

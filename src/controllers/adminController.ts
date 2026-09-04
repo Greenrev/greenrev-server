@@ -30,7 +30,7 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
     const booking = await Booking.findByIdAndUpdate(
       id,
       { status },
-      { new: true }
+      { returnDocument: 'after' }
     )
       .populate("userId", "name email")
       .populate("mechanicId", "name email");
@@ -76,7 +76,7 @@ export const updateVerificationStatus = async (req: Request, res: Response) => {
         adminNotes,
         reviewedBy: adminId
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate("user", "name email role verificationLevel");
 
     if (!request) {
