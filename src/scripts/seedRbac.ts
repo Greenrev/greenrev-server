@@ -148,7 +148,10 @@ export async function seedRbac() {
       });
       console.log("Super admin seeded successfully.");
     } else {
-      console.log("Super admin already exists, skipping creation.");
+      console.log("Super admin already exists, updating role just in case...");
+      const superAdminRole = await Role.findOne({ name: "super_admin" });
+      existingAdmin.assignedRole = superAdminRole?._id;
+      await existingAdmin.save();
     }
   }
 
