@@ -81,6 +81,59 @@ export async function requireAuth(
   }
 }
 
+export async function optionalAuth(
+  req: CustomReq,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const token = extractAccessToken(req);
+    if (!token) {
+      return next();
+    }
+
+    const payload = verifyAccessToken(token);
+    const user = await User.findById(payload.sub).populate({
+      path: "assignedRole",
+      populate: { path: "permissions" }
+    }).populate("customPermissions").lean();
+
+    if (user && user.status === "active") {
+      // Verify session version (optional)
+      let sessionValid = true;
+      if (payload.sessionVersion !== undefined && user.sessionVersion !== undefined) {
+        if (payload.sessionVersion !== user.sessionVersion) {
+          sessionValid = false;
+        }
+      }
+
+      if (sessionValid) {
+        const assignedRole = user.assignedRole as any;
+        const rolePermissions = assignedRole?.permissions?.map((p: any) => p.name) || [];
+        const customPermissions = (user.customPermissions as any)?.map((p: any) => p.name) || [];
+        const permissions = Array.from(new Set([...rolePermissions, ...customPermissions]));
+
+        req.user = {
+          id: String(user._id),
+          email: user.email,
+          role: user.role as UserRole,
+          name: user.name ?? null,
+          isEmailVerified: Boolean(user.isEmailVerified),
+          isPhoneVerified: Boolean(user.isPhoneVerified),
+          verificationLevel: (user.verificationLevel as any) || "basic",
+          verificationStatus: (user.verificationStatus as any) || "unverified",
+          permissions,
+          sessionVersion: user.sessionVersion,
+        };
+      }
+    }
+    next();
+  } catch (error) {
+    // If token verification fails, act as if there is no user
+    next();
+  }
+}
+
 export function requireRole(roles: UserRole[]) {
   return (req: CustomReq, _res: Response, next: NextFunction) => {
     const role = req.user?.role;

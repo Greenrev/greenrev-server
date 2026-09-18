@@ -152,6 +152,13 @@ export async function getAllProducts(req: CustomReq, res: Response) {
       .sort({ createdAt: -1 })
       .lean();
 
+    if (!req.user) {
+      products.forEach(p => {
+        delete (p as any).vendorId;
+        delete (p as any).vendorName;
+      });
+    }
+
     return sendSuccess(res, 200, { products });
   } catch (error) {
     console.error("Error fetching all products:", error);
@@ -185,6 +192,12 @@ export async function getProduct(req: CustomReq, res: Response) {
       ...product,
       vendorPhone: vendor?.phone ?? null,
     };
+
+    if (!req.user) {
+      delete (productWithContact as any).vendorId;
+      delete (productWithContact as any).vendorName;
+      delete (productWithContact as any).vendorPhone;
+    }
 
     return sendSuccess(res, 200, productWithContact);
   } catch (error) {

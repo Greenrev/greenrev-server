@@ -29,6 +29,11 @@ import type { CustomReq, UserRole } from "../types/auth";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function publicUser(user: any) {
+  const assignedRole = user.assignedRole;
+  const rolePermissions = assignedRole?.permissions?.map((p: any) => p.name) || [];
+  const customPermissions = user.customPermissions?.map((p: any) => p.name) || [];
+  const permissions = Array.from(new Set([...rolePermissions, ...customPermissions]));
+
   return {
     id: String(user._id),
     email: user.email,
@@ -37,6 +42,7 @@ function publicUser(user: any) {
     companyName: user.companyName ?? null,
     garageName: user.garageName ?? null,
     isEmailVerified: Boolean(user.isEmailVerified),
+    permissions,
   };
 }
 
@@ -228,7 +234,9 @@ export async function login(req: Request, res: Response) {
     throw new ApiError(400, "INVALID_PASSWORD", "Invalid password");
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ email: email.toLowerCase() })
+    .populate({ path: "assignedRole", populate: { path: "permissions" } })
+    .populate("customPermissions");
   if (!user || !user.passwordHash) {
     throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid credentials");
   }
@@ -275,7 +283,9 @@ export async function refresh(req: CustomReq, res: Response) {
     csrfToken,
     userId,
   } = await rotateRefreshToken(refreshToken);
-  const user = await User.findById(userId);
+  const user = await User.findById(userId)
+    .populate({ path: "assignedRole", populate: { path: "permissions" } })
+    .populate("customPermissions");
   if (!user) {
     throw new ApiError(401, "UNAUTHENTICATED", "Authentication required");
   }
