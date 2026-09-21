@@ -8,10 +8,13 @@ import { SmileIdentityService } from "../services/SmileIdentityService";
 export const VerificationController = {
   async submitIndividual(req: CustomReq, res: Response) {
     const userId = req.user?.id;
-    const { nin, selfieUrl } = req.body;
+    const { documentType, documentNumber, selfieUrl, nin } = req.body;
 
-    if (!nin || !selfieUrl) {
-      throw new ApiError(400, "BAD_REQUEST", "NIN and selfieUrl are required");
+    const finalDocType = documentType || "NIN";
+    const finalDocNumber = documentNumber || nin;
+
+    if (!finalDocNumber || !selfieUrl) {
+      throw new ApiError(400, "BAD_REQUEST", "Document number and selfieUrl are required");
     }
 
     const existingRequest = await VerificationRequest.findOne({ user: userId, status: { $in: ["pending", "info_requested"] } });
@@ -19,15 +22,17 @@ export const VerificationController = {
       throw new ApiError(400, "BAD_REQUEST", "You already have a pending verification request.");
     }
 
-    // Call Smile ID Mock Service
-    const smileResult = await SmileIdentityService.verifyIndividual(nin, selfieUrl, userId as string);
+    // Call Smile ID Service (Live or Mock)
+    const smileResult = await SmileIdentityService.verifyIndividual(finalDocType, finalDocNumber, selfieUrl, userId as string);
 
     if (!smileResult.success) {
       // Create rejected record
       await VerificationRequest.create({
         user: userId,
         levelRequested: "individual",
-        nin,
+        documentType: finalDocType,
+        documentNumber: finalDocNumber,
+        nin: finalDocType === "NIN" ? finalDocNumber : undefined, // Legacy support
         selfieUrl,
         status: "rejected",
       });
@@ -38,7 +43,9 @@ export const VerificationController = {
     const newRequest = await VerificationRequest.create({
       user: userId,
       levelRequested: "individual",
-      nin,
+      documentType: finalDocType,
+      documentNumber: finalDocNumber,
+      nin: finalDocType === "NIN" ? finalDocNumber : undefined, // Legacy support
       selfieUrl,
       status: "approved",
     });

@@ -7,7 +7,9 @@ const verificationRequestSchema = new Schema(
     status: { type: String, required: true, enum: ["pending", "approved", "rejected", "info_requested"], default: "pending" },
     
     // Level 2 (Individual)
-    nin: { type: String, required: false },
+    documentType: { type: String, enum: ["NIN", "PASSPORT", "DRIVERS_LICENSE"], required: false },
+    documentNumber: { type: String, required: false },
+    nin: { type: String, required: false }, // Legacy
     selfieUrl: { type: String, required: false },
     
     // Level 3 (Business)
