@@ -95,7 +95,7 @@ export const updateTicketStatus = async (req: Request, res: Response) => {
     if (priority) updateFields.priority = priority;
     if (assignedTo !== undefined) updateFields.assignedTo = assignedTo || null;
 
-    const ticket = await Ticket.findByIdAndUpdate(id, updateFields, { returnDocument: 'after' })
+    const ticket = await Ticket.findByIdAndUpdate(id, updateFields, { new: true })
       .populate("userId", "name email")
       .populate("assignedTo", "name email");
 

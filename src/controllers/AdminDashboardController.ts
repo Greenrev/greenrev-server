@@ -20,16 +20,13 @@ export async function listUsers(req: CustomReq, res: Response) {
     matchStage.role = role;
   }
 
-  const { users, total } = await User.aggregate([
-    { $match: matchStage },
-    { $facet: {
-      users: [{ $skip: skip }, { $limit: limit }],
-      total: [{ $count: "count" }]
-    }}
-  ]).then(res => ({
-    users: res[0].users,
-    total: res[0].total[0]?.count || 0
-  }));
+  const users = await User.find(matchStage)
+    .skip(skip)
+    .limit(limit)
+    .populate("assignedRole", "name description level")
+    .exec();
+
+  const total = await User.countDocuments(matchStage);
 
   return sendSuccess(res, 200, { users, total, page, limit });
 }
@@ -42,7 +39,7 @@ export async function updateUserStatus(req: CustomReq, res: Response) {
     throw new ApiError(400, "INVALID_STATUS", "Invalid status value");
   }
 
-  const user = await User.findByIdAndUpdate(id, { status }, { returnDocument: 'after' });
+  const user = await User.findByIdAndUpdate(id, { status }, { new: true });
   if (!user) {
     throw new ApiError(404, "USER_NOT_FOUND", "User not found");
   }
@@ -58,7 +55,7 @@ export async function updateUserRole(req: CustomReq, res: Response) {
     throw new ApiError(400, "INVALID_ROLE", "Invalid role value");
   }
 
-  const user = await User.findByIdAndUpdate(id, { role }, { returnDocument: 'after' });
+  const user = await User.findByIdAndUpdate(id, { role }, { new: true });
   if (!user) {
     throw new ApiError(404, "USER_NOT_FOUND", "User not found");
   }
@@ -74,7 +71,7 @@ export async function updateUserTier(req: CustomReq, res: Response) {
     throw new ApiError(400, "INVALID_TIER", "Invalid tier value");
   }
 
-  const user = await User.findByIdAndUpdate(id, { verificationLevel }, { returnDocument: 'after' });
+  const user = await User.findByIdAndUpdate(id, { verificationLevel }, { new: true });
   if (!user) {
     throw new ApiError(404, "USER_NOT_FOUND", "User not found");
   }

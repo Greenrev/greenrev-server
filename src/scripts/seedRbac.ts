@@ -64,7 +64,7 @@ export async function seedRbac() {
     await Permission.findOneAndUpdate(
       { name: perm.name },
       { $set: perm },
-      { upsert: true, returnDocument: 'after' }
+      { upsert: true, new: true }
     );
   }
 
@@ -123,7 +123,7 @@ export async function seedRbac() {
     await Role.findOneAndUpdate(
       { name: roleData.name },
       { $set: roleData },
-      { upsert: true, returnDocument: 'after' }
+      { upsert: true, new: true }
     );
   }
 
