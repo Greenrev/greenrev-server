@@ -51,7 +51,17 @@ export async function createInquiry(req: Request, res: Response) {
 }
 
 export async function listInquiries(req: Request, res: Response) {
-  const inquiries = await Inquiry.find().sort({ createdAt: -1 });
+  const search = ((req.query.search || req.query.q) as string | undefined)?.trim();
+  const filter: any = {};
+  if (search) {
+    filter.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { phone: { $regex: search, $options: "i" } },
+      { message: { $regex: search, $options: "i" } },
+    ];
+  }
+  const inquiries = await Inquiry.find(filter).sort({ createdAt: -1 });
   return sendSuccess(res, 200, { inquiries });
 }
 

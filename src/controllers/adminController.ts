@@ -7,7 +7,15 @@ import { sendSuccess, sendError } from "../utils/apiResponse";
 // Bookings
 export const getAllBookings = async (req: Request, res: Response) => {
   try {
-    const bookings = await Booking.find()
+    const search = ((req.query.search || req.query.q) as string | undefined)?.trim();
+    const query: any = {};
+    if (search) {
+      query.$or = [
+        { status: { $regex: search, $options: "i" } },
+        { issueDescription: { $regex: search, $options: "i" } },
+      ];
+    }
+    const bookings = await Booking.find(query)
       .populate("userId", "name email")
       .populate("mechanicId", "name email")
       .sort({ createdAt: -1 });
@@ -48,7 +56,18 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
 // Verifications
 export const getVerificationRequests = async (req: Request, res: Response) => {
   try {
-    const requests = await VerificationRequest.find()
+    const search = ((req.query.search || req.query.q) as string | undefined)?.trim();
+    const query: any = {};
+    if (search) {
+      query.$or = [
+        { status: { $regex: search, $options: "i" } },
+        { adminNotes: { $regex: search, $options: "i" } },
+        { documentNumber: { $regex: search, $options: "i" } },
+        { nin: { $regex: search, $options: "i" } },
+        { cacNumber: { $regex: search, $options: "i" } },
+      ];
+    }
+    const requests = await VerificationRequest.find(query)
       .populate("user", "name email role verificationLevel")
       .populate("reviewedBy", "name email")
       .sort({ createdAt: -1 });
@@ -92,7 +111,12 @@ export const updateVerificationStatus = async (req: Request, res: Response) => {
 // Reviews Moderation
 export const getAllReviews = async (req: Request, res: Response) => {
   try {
-    const reviews = await Review.find()
+    const search = ((req.query.search || req.query.q) as string | undefined)?.trim();
+    const query: any = {};
+    if (search) {
+      query.comment = { $regex: search, $options: "i" };
+    }
+    const reviews = await Review.find(query)
       .populate("customerId", "name email")
       .populate("vendorId", "name email")
       .sort({ createdAt: -1 });
