@@ -37,7 +37,12 @@ export interface SmileResult {
   success: boolean;
   message: string;
   jobId?: string;
+  /** True when the job was queued and the outcome will arrive via the webhook. */
+  pending?: boolean;
 }
+
+/** Smile ID result codes that mean the ID matched (Exact / Partial Match). */
+export const SMILE_PASS_CODES = ["1010", "1011"];
 
 // ─── Mock Implementation ──────────────────────────────────────────────────────
 
@@ -86,18 +91,17 @@ async function liveVerifyIndividual(idType: string, idNumber: string, userId: st
 
   // Async path: queued for processing via webhook
   if (CALLBACK_URL) {
-    return { success: true, message: "Verification submitted. You will be notified shortly.", jobId };
+    return { success: true, pending: true, message: "Verification submitted. You will be notified shortly.", jobId };
   }
 
   // Synchronous path: check result immediately
   const resultCode = response?.ResultCode ?? response?.result_code;
   const resultText = response?.ResultText ?? response?.result_text ?? "Verification complete.";
 
-  if (resultCode === "1012" || resultCode === "1020") {
-    return { success: false, message: resultText };
+  // Only 1010 (Exact Match) and 1011 (Partial Match) are passes — anything else is a failure.
+  if (!SMILE_PASS_CODES.includes(String(resultCode))) {
+    return { success: false, message: resultText, jobId };
   }
-
-  // Result codes 1010 (Exact Match), 1011 (Partial Match) are successes
   return { success: true, message: resultText, jobId };
 }
 
@@ -123,16 +127,16 @@ async function liveVerifyBusiness(cacNumber: string, userId: string): Promise<Sm
     : await idApi.submit_job(partnerParams, idInfo);
 
   if (CALLBACK_URL) {
-    return { success: true, message: "Business verification submitted. You will be notified shortly.", jobId };
+    return { success: true, pending: true, message: "Business verification submitted. You will be notified shortly.", jobId };
   }
 
   const resultCode = response?.ResultCode ?? response?.result_code;
   const resultText = response?.ResultText ?? response?.result_text ?? "Business verification complete.";
 
-  if (resultCode === "1012" || resultCode === "1020") {
-    return { success: false, message: resultText };
+  // Only 1010 (Exact Match) and 1011 (Partial Match) are passes — anything else is a failure.
+  if (!SMILE_PASS_CODES.includes(String(resultCode))) {
+    return { success: false, message: resultText, jobId };
   }
-
   return { success: true, message: resultText, jobId };
 }
 

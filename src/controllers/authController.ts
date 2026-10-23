@@ -42,6 +42,10 @@ function publicUser(user: any) {
     companyName: user.companyName ?? null,
     garageName: user.garageName ?? null,
     isEmailVerified: Boolean(user.isEmailVerified),
+    // Must match what requireAuth puts on req.user (returned by /auth/me), otherwise
+    // clients that take the user from login/refresh see KYC as reset after re-login.
+    verificationLevel: user.verificationLevel || "basic",
+    verificationStatus: user.verificationStatus || "unverified",
     permissions,
   };
 }

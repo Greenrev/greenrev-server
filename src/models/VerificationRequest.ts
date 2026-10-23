@@ -20,6 +20,9 @@ const verificationRequestSchema = new Schema(
     bankAccountNumber: { type: String, required: false },
     bankCode: { type: String, required: false },
     
+    // Smile ID job this request was submitted as — lets the webhook update the right request.
+    smileJobId: { type: String, required: false, index: true },
+
     // Admin fields
     reviewedBy: { type: Schema.Types.ObjectId, ref: "User", required: false },
     adminNotes: { type: String, required: false },
