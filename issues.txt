@@ -1,0 +1,55 @@
+Critical: anyone can take over the platform
+Anyone can register as an admin through the normal sign-up. authController.ts:148 accepts role: "admin" from the request. After verifying their email, they have full admin access.
+The admin sign-up is protected only by the code "GREENREV", written into the source code. authController.ts:87
+Google sign-in also hands out admin. ?role=admin is accepted when the account is created. authController.ts:488, :596
+The upload endpoint reads files before checking login. An anonymous visitor can send 10 × 50 MB files per request into server memory, so a few requests can crash the server. It also accepts any file type from any logged-in user. uploadRoutes.ts:17
+Next.js has a critical-severity advisory in the installed version range (npm audit).
+High
+Server
+
+CORS accepts every origin with credentials, and /auth/me returns the access token and CSRF token in its response. If cookies are ever set to SameSite=None, any website could read them. app.ts:45, authController.ts:276
+Customers can see admins' internal support notes. GET /support/me returns every message, including ones marked internal. supportController.ts:27
+Admin approve/reject of a KYC request doesn't change the user's verified status, so rejecting someone leaves them verified. adminController.ts:81
+Admin permissions aren't enforced on the server. requirePermission is never used; permissions only hide sidebar items, so every admin can call every admin endpoint.
+Two-admin approval for suspensions can be skipped: PATCH /admin/users/:id/status suspends directly. Role changes and deletions aren't written to the audit log either.
+MFA does nothing. Users can enable it, but login never asks for the code. The secret is stored in plain text and returned by GET /profile. profileController.ts:10
+Email PINs are guessable. They use Math.random(), are printed to server logs, last 24 hours, and have no per-account attempt limit. "Resend" adds new valid PINs without cancelling old ones. authController.ts:114, :124
+Product search is open to regex injection and denial of service: name, make and color go straight into $regex, unescaped (productController.ts around lines 121–145). /products also has no pagination.
+The receipt upload sends the receipt to Cloudinary before checking ownership, and accepts any string, including a remote URL that Cloudinary will fetch. acquisitionController.ts:379
+A vehicle can be "sold" many times. Acquisition requests never check or reduce stock, and a customer can send unlimited duplicate requests for the same item.
+Dependencies: high-severity advisories in axios, engine.io, form-data, follow-redirects and body-parser (npm audit fix resolves them).
+Web
+
+Web real-time notifications never connect. The socket sends only cookies, and the server looks for a cookie named accessToken when the real one is access_token. socket.ts:29, SocketContext.tsx:42
+The AI chat costs money and is unprotected: /api/chat has no login, rate limit or message-size cap, so anyone can run up the OpenRouter bill. route.ts
+The access token is copied to localStorage, which undoes the HttpOnly cookie: any XSS can steal it. apiClient.ts:17
+Business KYC sends fake data: cacDocumentUrl: "url", businessAddress: "addr", bankAccountNumber: "123". There are no real upload fields. verification/page.tsx:52
+Mobile
+
+Users are effectively logged out after 15 minutes. There's no token refresh: mobile keeps only the 15-minute access token and drops the refresh-token cookie, so calls start failing and the next launch signs the user out.
+Android release builds are signed with the debug key. build.gradle.kts:32
+Notifications don't work on Android 13+: there's no POST_NOTIFICATIONS permission or runtime request. There's also no push service, so nothing arrives while the app is closed.
+Medium
+[Server] Internal error messages reach users: raw messages from 500 errors are sent to clients, and malformed IDs give a 500 instead of a 404. errorHandler.ts:20
+[Server] Rate limiter leaks memory and isn't shared: it's in memory, never evicts entries, and each server process has its own. rateLimit.ts:11 Inquiries, expert messages and vendor messages have no rate limit at all, so they can be spammed.
+[Server] Socket auth weaknesses: there's a hardcoded fallback JWT secret, and suspended or revoked users stay connected. socket.ts:36
+[Server] Suspended accounts can still log in: login and Google sign-in don't check suspension (later requests do). Google sign-in also treats a missing verified_email as verified, so it can link to an existing account. authController.ts:601
+[Server] Account deletion leaves orphans: it hard-deletes the user but leaves their products, requests and tokens, and clears cookies without the cookie domain. profileController.ts:95
+[Server] Public experts list includes suspended and unverified mechanics, with their email and phone.
+[Server] Reviews don't require a transaction: experts and products can be reviewed by anyone logged in.
+[Server] Old sessions survive resets and logout: access tokens stay valid for up to 15 minutes after a password reset or logout.
+[Server] The existing auth test fails: it uses the old email-verify request shape.
+[Web] Mechanic Availability and Mechanic Settings "Save" buttons do nothing, and Admin Analytics is a placeholder page.
+[Web] Error pages crash requests: apiRequest calls JSON.parse on every response, so a non-JSON error (e.g. a 502) throws instead of returning an error.
+[Web] Linting is broken: the lint script runs next lint, which Next 16 removed, and the config is in a format ESLint 9 can't read.
+[Web] Cart and compare survive logout (stored in localStorage), so the next person on a shared browser sees them.
+[Mobile] Token stored in plain SharedPreferences, not secure storage.
+[Mobile] HTTP requests have no timeout, so a stalled connection hangs the screen indefinitely.
+[Mobile] Cleartext HTTP is allowed on Android. AndroidManifest.xml:9
+Low / housekeeping
+[Server] Tokens and secrets: verification PINs use Math.random (password reset tokens use a secure random). The whole API accepts 10 MB JSON bodies.
+[Web] Stray scripts: test-chat*.js and test-usechat* are left in the project root.
+[Web] Missing config falls back to localhost: without NEXT_PUBLIC_API_BASE_URL, the app calls localhost:4000. The next.config rewrite also points at localhost.
+[Web] Placeholder content: testimonials are marked "Replace before launch", and the footer's App Store / Play icons link to #.
+[Mobile] App name and web build: the app is named "Greenrev" rather than "GreenRev", and safeImageProvider uses dart:io, so the Flutter web build would break.
+[Mobile] Analyzer notes: 3 remain in socket_service.dart (print calls, the IO prefix name).
