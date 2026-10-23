@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { timingSafeEqual } from "crypto";
 import { env } from "../config/env";
 import { User } from "../models/User";
 import { AuthToken } from "../models/AuthToken";
@@ -27,6 +28,22 @@ import { getVerificationEmailTemplate, getPasswordResetTemplate } from "../utils
 import type { CustomReq, UserRole } from "../types/auth";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Roles anyone may sign up as. Admins are created only via /auth/admin-register or promotion. */
+const SELF_SERVICE_ROLES: UserRole[] = ["customer", "vendor", "mechanic"];
+
+function isSelfServiceRole(role: unknown): role is UserRole {
+  return typeof role === "string" && (SELF_SERVICE_ROLES as string[]).includes(role);
+}
+
+/** Constant-time check of the admin activation code; always false when the env var is unset. */
+function isValidAdminActivationCode(code: unknown): boolean {
+  const expected = env.adminActivationCode;
+  if (!expected || typeof code !== "string") return false;
+  const a = Buffer.from(code);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 function publicUser(user: any) {
   const assignedRole = user.assignedRole;
@@ -84,7 +101,10 @@ export async function adminRegister(req: Request, res: Response) {
   if (typeof password !== "string") {
     throw new ApiError(400, "INVALID_PASSWORD", "Invalid password");
   }
-  if (typeof activationCode !== "string" || activationCode !== "GREENREV") {
+  if (!env.adminActivationCode) {
+    throw new ApiError(403, "ADMIN_REGISTRATION_DISABLED", "Admin registration is disabled");
+  }
+  if (!isValidAdminActivationCode(activationCode)) {
     throw new ApiError(403, "INVALID_ACTIVATION_CODE", "Invalid activation code");
   }
   if (name !== undefined && name !== null && typeof name !== "string") {
@@ -143,10 +163,7 @@ export async function register(req: Request, res: Response) {
   if (typeof password !== "string") {
     throw new ApiError(400, "INVALID_PASSWORD", "Invalid password");
   }
-  if (
-    typeof role !== "string" ||
-    !["customer", "vendor", "mechanic", "admin"].includes(role)
-  ) {
+  if (!isSelfServiceRole(role)) {
     throw new ApiError(400, "INVALID_ROLE", "Invalid role");
   }
   if (name !== undefined && name !== null && typeof name !== "string") {
@@ -485,7 +502,7 @@ export async function googleStart(req: Request, res: Response) {
   }
 
   const role = (req.query.role as string | undefined) ?? "customer";
-  if (!["customer", "vendor", "mechanic", "admin"].includes(role)) {
+  if (!isSelfServiceRole(role)) {
     throw new ApiError(400, "INVALID_ROLE", "Invalid role");
   }
 
@@ -593,9 +610,8 @@ export async function googleCallback(req: Request, res: Response) {
     user = await User.create({
       email,
       name: profile.name ?? null,
-      role: (["customer", "vendor", "mechanic", "admin"].includes(role)
-        ? role
-        : "customer") as UserRole,
+      // The role comes from client-supplied OAuth state — never allow admin here.
+      role: isSelfServiceRole(role) ? role : "customer",
       googleId: profile.id,
       passwordHash: null,
       isEmailVerified: Boolean(profile.verified_email ?? true),

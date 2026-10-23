@@ -38,4 +38,8 @@ export const env = {
   googleRedirectUri: optional("GOOGLE_REDIRECT_URI"),
   emailFrom: optional("EMAIL_FROM") ?? optional("SMTP_FROM"),
   resendApiKey: optional("RESEND_API_KEY"),
+  // Shared secret for /auth/admin-register. Leave unset to disable admin self-registration.
+  get adminActivationCode(): string | undefined {
+    return optional("ADMIN_ACTIVATION_CODE") || undefined;
+  },
 };

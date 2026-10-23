@@ -53,3 +53,15 @@ Low / housekeeping
 [Web] Placeholder content: testimonials are marked "Replace before launch", and the footer's App Store / Play icons link to #.
 [Mobile] App name and web build: the app is named "Greenrev" rather than "GreenRev", and safeImageProvider uses dart:io, so the Flutter web build would break.
 [Mobile] Analyzer notes: 3 remain in socket_service.dart (print calls, the IO prefix name).
+
+
+
+
+What you need to do
+
+Admin sign-up is switched off until you set ADMIN_ACTIVATION_CODE on the server. Without it, /admin/register shows "Admin registration is disabled". Generate a long random value (openssl rand -base64 32), set it, and share it with new admins privately. The old "GREENREV" no longer works.
+Look for admin accounts nobody expected. Run this against the production database:
+
+db.users.find({ role: "admin" }, { email: 1, name: 1, createdAt: 1, status: 1 }).sort({ createdAt: -1 })
+Any account you don't recognise could have come from these holes. Suspend or demote it, and use "revoke sessions" to log it out.
+Deploy both projects: the server changes and the web's new package.json and package-lock.json.
