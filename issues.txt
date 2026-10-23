@@ -1,9 +1,3 @@
-Critical: anyone can take over the platform
-Anyone can register as an admin through the normal sign-up. authController.ts:148 accepts role: "admin" from the request. After verifying their email, they have full admin access.
-The admin sign-up is protected only by the code "GREENREV", written into the source code. authController.ts:87
-Google sign-in also hands out admin. ?role=admin is accepted when the account is created. authController.ts:488, :596
-The upload endpoint reads files before checking login. An anonymous visitor can send 10 × 50 MB files per request into server memory, so a few requests can crash the server. It also accepts any file type from any logged-in user. uploadRoutes.ts:17
-Next.js has a critical-severity advisory in the installed version range (npm audit).
 High
 Server
 
@@ -26,7 +20,6 @@ The access token is copied to localStorage, which undoes the HttpOnly cookie: an
 Business KYC sends fake data: cacDocumentUrl: "url", businessAddress: "addr", bankAccountNumber: "123". There are no real upload fields. verification/page.tsx:52
 Mobile
 
-Users are effectively logged out after 15 minutes. There's no token refresh: mobile keeps only the 15-minute access token and drops the refresh-token cookie, so calls start failing and the next launch signs the user out.
 Android release builds are signed with the debug key. build.gradle.kts:32
 Notifications don't work on Android 13+: there's no POST_NOTIFICATIONS permission or runtime request. There's also no push service, so nothing arrives while the app is closed.
 Medium
@@ -43,7 +36,6 @@ Medium
 [Web] Error pages crash requests: apiRequest calls JSON.parse on every response, so a non-JSON error (e.g. a 502) throws instead of returning an error.
 [Web] Linting is broken: the lint script runs next lint, which Next 16 removed, and the config is in a format ESLint 9 can't read.
 [Web] Cart and compare survive logout (stored in localStorage), so the next person on a shared browser sees them.
-[Mobile] Token stored in plain SharedPreferences, not secure storage.
 [Mobile] HTTP requests have no timeout, so a stalled connection hangs the screen indefinitely.
 [Mobile] Cleartext HTTP is allowed on Android. AndroidManifest.xml:9
 Low / housekeeping
