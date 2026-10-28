@@ -21,6 +21,8 @@ import expertRoutes from "./routes/expertRoutes";
 import mechanicRoutes from "./routes/mechanicRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
 import uploadRoutes from "./routes/uploadRoutes";
+import aiRoutes from "./routes/aiRoutes";
+import listingOptionRoutes from "./routes/listingOptionRoutes";
 import { verificationRoutes } from "./routes/verificationRoutes";
 import inquiryRoutes from "./routes/inquiryRoutes";
 import vendorRoutes from "./routes/vendorRoutes";
@@ -68,6 +70,8 @@ export function createApp() {
   app.use("/api/v1", mechanicRoutes);
   app.use("/api/v1", bookingRoutes);
   app.use("/api/v1", uploadRoutes);
+  app.use("/api/v1", aiRoutes);
+  app.use("/api/v1", listingOptionRoutes);
   app.use("/api/v1/verification", verificationRoutes);
   app.use("/api/v1", inquiryRoutes);
   app.use("/api/v1", vendorRoutes);

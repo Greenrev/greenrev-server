@@ -3,6 +3,7 @@ import { Product } from "../models/Product";
 import { User } from "../models/User";
 import type { CustomReq } from "../types/auth";
 import { sendSuccess, sendError } from "../utils/apiResponse";
+import { recordVendorListingValues } from "../services/listingOptionsService";
 
 export async function createProduct(req: CustomReq, res: Response) {
   try {
@@ -72,6 +73,7 @@ export async function createProduct(req: CustomReq, res: Response) {
     });
 
     await product.save();
+    trackNewListingValues(product, req.user);
 
     return sendSuccess(res, 201, product);
   } catch (error) {
@@ -263,6 +265,7 @@ export async function updateProduct(req: CustomReq, res: Response) {
     });
 
     await product.save();
+    trackNewListingValues(product, req.user);
 
     return sendSuccess(res, 200, product);
   } catch (error) {
@@ -360,4 +363,10 @@ export async function bulkDeleteProducts(req: CustomReq, res: Response) {
       message: "Failed to bulk delete products",
     });
   }
+}
+
+/** Queues values the vendor typed that aren't in the managed dropdown lists for admin review. Never blocks the save. */
+function trackNewListingValues(product: Parameters<typeof recordVendorListingValues>[0], user: { id: string; role: string }) {
+  if (user.role !== "vendor") return;
+  recordVendorListingValues(product, user.id).catch((err) => console.error("Failed to record new listing values:", err));
 }
