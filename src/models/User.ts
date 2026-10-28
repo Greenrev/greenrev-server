@@ -53,6 +53,15 @@ const userSchema = new Schema(
   { timestamps: true },
 );
 
+import { Product } from "./Product";
+
+userSchema.post("findOneAndDelete", async function (doc) {
+  if (doc) {
+    // Delete all products associated with this user
+    await Product.deleteMany({ vendorId: doc._id });
+  }
+});
+
 export type UserDocument = InferSchemaType<typeof userSchema> & { _id: unknown };
 
 export const User = model("User", userSchema);

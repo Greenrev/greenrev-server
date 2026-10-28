@@ -6,8 +6,9 @@ import { sendSuccess, sendError } from "../utils/apiResponse";
 import type { CustomReq } from "../types/auth";
 import { sendEmail } from "../services/emailService";
 
-export async function getExperts(req: Request, res: Response) {
+export async function getExperts(req: CustomReq, res: Response) {
   try {
+    const showContact = Boolean(req.user);
     const experts = await User.find({ role: "mechanic" })
       .select("-passwordHash -__v")
       .lean();
@@ -41,8 +42,9 @@ export async function getExperts(req: Request, res: Response) {
         lng: expert.lng || 0,
         specialization: expert.specialization || [],
         hourlyRate: expert.hourlyRate || 0,
-        phone: expert.phone || "",
-        email: expert.email,
+        // Guests see the expert but not how to reach them off-platform.
+        phone: showContact ? expert.phone || "" : null,
+        email: showContact ? expert.email : null,
         // Return null image so the client can fall back to initials
         image: expert.profileImage || null,
         averageRating: ratings ? Math.round(ratings.averageRating * 10) / 10 : null,
@@ -50,7 +52,7 @@ export async function getExperts(req: Request, res: Response) {
       };
     });
 
-    return sendSuccess(res, 200, { experts: mappedExperts });
+    return sendSuccess(res, 200, { experts: mappedExperts, contactHidden: !showContact });
   } catch (error) {
     console.error("Get experts error:", error);
     return sendError(res, 500, { code: "INTERNAL_ERROR", message: "Server error" });

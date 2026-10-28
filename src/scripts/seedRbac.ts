@@ -1,6 +1,9 @@
+import "dotenv/config";
 import mongoose from "mongoose";
 import { Permission } from "../models/Permission";
 import { Role } from "../models/Role";
+import { User } from "../models/User";
+import { hashPassword } from "../utils/password";
 
 export const PERMISSION_LIST = [
   // Customer Permissions
@@ -124,13 +127,41 @@ export async function seedRbac() {
     );
   }
 
+  // 4. Seed Super Admin (Optional)
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
+  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
+
+  if (superAdminEmail && superAdminPassword) {
+    const existingAdmin = await User.findOne({ email: superAdminEmail.toLowerCase() });
+    if (!existingAdmin) {
+      console.log("Seeding super admin...");
+      const passwordHash = await hashPassword(superAdminPassword);
+      const superAdminRole = await Role.findOne({ name: "super_admin" });
+
+      await User.create({
+        email: superAdminEmail.toLowerCase(),
+        passwordHash,
+        role: "admin",
+        assignedRole: superAdminRole?._id,
+        name: "Super Admin",
+        isEmailVerified: true,
+      });
+      console.log("Super admin seeded successfully.");
+    } else {
+      console.log("Super admin already exists, updating role just in case...");
+      const superAdminRole = await Role.findOne({ name: "super_admin" });
+      existingAdmin.assignedRole = superAdminRole?._id;
+      await existingAdmin.save();
+    }
+  }
+
   console.log("RBAC seeding complete!");
 }
 
 if (require.main === module) {
   require("dotenv").config();
   mongoose
-    .connect(process.env.MONGODB_URI as string)
+    .connect((process.env.MONGO_URI || process.env.MONGODB_URI) as string)
     .then(async () => {
       await seedRbac();
       process.exit(0);

@@ -38,4 +38,15 @@ export const env = {
   googleRedirectUri: optional("GOOGLE_REDIRECT_URI"),
   emailFrom: optional("EMAIL_FROM") ?? optional("SMTP_FROM"),
   resendApiKey: optional("RESEND_API_KEY"),
+  // AI listing assistant (photo / voice -> listing fields). Leave unset to disable.
+  get openRouterApiKey(): string | undefined {
+    return optional("OPENROUTER_API_KEY") || undefined;
+  },
+  get listingModel(): string {
+    return optional("OPENROUTER_LISTING_MODEL") || "google/gemini-2.5-flash";
+  },
+  // Shared secret for /auth/admin-register. Leave unset to disable admin self-registration.
+  get adminActivationCode(): string | undefined {
+    return optional("ADMIN_ACTIVATION_CODE") || undefined;
+  },
 };

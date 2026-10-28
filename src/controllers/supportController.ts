@@ -34,7 +34,17 @@ export const getUserTickets = async (req: Request, res: Response) => {
 // Admin: Get all tickets
 export const getAllTickets = async (req: Request, res: Response) => {
   try {
-    const tickets = await Ticket.find()
+    const search = ((req.query.search || req.query.q) as string | undefined)?.trim();
+    const query: any = {};
+    if (search) {
+      query.$or = [
+        { subject: { $regex: search, $options: "i" } },
+        { status: { $regex: search, $options: "i" } },
+        { priority: { $regex: search, $options: "i" } },
+        { "messages.content": { $regex: search, $options: "i" } },
+      ];
+    }
+    const tickets = await Ticket.find(query)
       .populate("userId", "name email role")
       .populate("assignedTo", "name email")
       .sort({ createdAt: -1 });

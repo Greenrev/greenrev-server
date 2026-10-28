@@ -13,23 +13,27 @@ export async function listUsers(req: CustomReq, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 20;
   const role = req.query.role as string;
+  const search = ((req.query.search || req.query.q) as string | undefined)?.trim();
   const skip = (page - 1) * limit;
 
   const matchStage: any = {};
   if (role) {
     matchStage.role = role;
   }
+  if (search) {
+    matchStage.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+    ];
+  }
 
-  const { users, total } = await User.aggregate([
-    { $match: matchStage },
-    { $facet: {
-      users: [{ $skip: skip }, { $limit: limit }],
-      total: [{ $count: "count" }]
-    }}
-  ]).then(res => ({
-    users: res[0].users,
-    total: res[0].total[0]?.count || 0
-  }));
+  const users = await User.find(matchStage)
+    .skip(skip)
+    .limit(limit)
+    .populate("assignedRole", "name description level")
+    .exec();
+
+  const total = await User.countDocuments(matchStage);
 
   return sendSuccess(res, 200, { users, total, page, limit });
 }
@@ -222,6 +226,15 @@ export async function listAuditLogs(req: CustomReq, res: Response) {
   if (req.query.module) filter.module = req.query.module as string;
   if (req.query.action) filter.action = req.query.action as string;
   if (req.query.adminId) filter.adminId = req.query.adminId as string;
+  const search = ((req.query.search || req.query.q) as string | undefined)?.trim();
+  if (search) {
+    filter.$or = [
+      { module: { $regex: search, $options: "i" } },
+      { action: { $regex: search, $options: "i" } },
+      { targetModel: { $regex: search, $options: "i" } },
+      { reason: { $regex: search, $options: "i" } },
+    ];
+  }
 
   const logs = await AuditLog.find(filter)
     .sort({ createdAt: -1 })

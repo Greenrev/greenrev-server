@@ -30,8 +30,14 @@ const sensitiveLimiter = slidingWindowRateLimit({
   max: 8,
 });
 
+// Admin sign-up checks a shared code — keep guessing slow.
+const adminRegisterLimiter = slidingWindowRateLimit({
+  windowMs: 15 * 60_000,
+  max: 5,
+});
+
 router.post("/register", sensitiveLimiter, register);
-router.post("/admin-register", sensitiveLimiter, adminRegister);
+router.post("/admin-register", adminRegisterLimiter, adminRegister);
 router.post("/login", sensitiveLimiter, login);
 router.post("/logout", authLimiter, logout);
 router.post("/refresh", authLimiter, refresh);

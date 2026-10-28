@@ -18,8 +18,10 @@ export class NotificationService {
     message: string;
     type: string;
     relatedId?: string;
+    /** In-app only when false — for high-volume, low-urgency notices. */
+    sendEmail?: boolean;
   }) {
-    const { recipientId, title, message, type, relatedId } = params;
+    const { recipientId, title, message, type, relatedId, sendEmail = true } = params;
 
     // 1. Save to DB
     let notification;
@@ -52,6 +54,7 @@ export class NotificationService {
     }
 
     // 3. Send Email via Resend (fire and forget)
+    if (!sendEmail) return;
     try {
       const recipient = await User.findById(recipientId).select("email name");
       if (recipient && recipient.email && resend) {

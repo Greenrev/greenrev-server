@@ -13,6 +13,7 @@ import type { Request, Response } from "express";
 import { Signature } from "smile-identity-core";
 import { User } from "../models/User";
 import { VerificationRequest } from "../models/VerificationRequest";
+import { SMILE_PASS_CODES } from "../services/SmileIdentityService";
 
 const PARTNER_ID = process.env.SMILE_PARTNER_ID ?? "";
 const API_KEY = process.env.SMILE_API_KEY ?? "";
@@ -49,26 +50,41 @@ export async function smileWebhookHandler(req: Request, res: Response): Promise<
       return;
     }
 
-    const passed = resultCode === "1010" || resultCode === "1011"; // Exact or Partial Match
+    const passed = SMILE_PASS_CODES.includes(String(resultCode)); // Exact or Partial Match
     const status = passed ? "approved" : "rejected";
 
-    // Update the verification request
-    await VerificationRequest.findOneAndUpdate(
-      { user: userId },
-      { status },
-      { sort: { createdAt: -1 }, new: true },
-    );
+    // Prefer the exact request this job was submitted as; fall back to the user's latest pending one.
+    const request =
+      (jobId && (await VerificationRequest.findOne({ smileJobId: jobId }))) ||
+      (await VerificationRequest.findOne({ user: userId, status: { $in: ["pending", "info_requested"] } }).sort({
+        createdAt: -1,
+      }));
+
+    if (!request) {
+      console.error(`[SmileID Webhook] No verification request found for user ${userId} / job ${jobId}.`);
+      return;
+    }
+
+    request.status = status;
+    if (!passed) request.adminNotes = resultText;
+    await request.save();
+
+    const user = await User.findById(userId).select("verificationStatus verificationLevel");
+    if (!user) return;
 
     if (passed) {
-      // Determine tier from job type (1 = Basic KYC / Individual, 6 = Business Verification)
-      const isBusinessJob = Number(jobType) === 6;
-      await User.findByIdAndUpdate(userId, {
-        verificationStatus: "verified",
-        verificationLevel: isBusinessJob ? "business" : "individual",
-      });
-
-      console.log(`[SmileID Webhook] ✅ User ${userId} verified as ${isBusinessJob ? "business" : "individual"}.`);
+      // Level comes from what was requested (job type is only a fallback: 6 = Business Verification).
+      const level = request.levelRequested ?? (Number(jobType) === 6 ? "business" : "individual");
+      user.verificationStatus = "verified";
+      user.verificationLevel = level;
+      await user.save();
+      console.log(`[SmileID Webhook] ✅ User ${userId} verified as ${level}.`);
     } else {
+      // Never downgrade an already-verified user (e.g. a failed business upgrade).
+      if (user.verificationStatus !== "verified") {
+        user.verificationStatus = "rejected";
+        await user.save();
+      }
       console.log(`[SmileID Webhook] ❌ Verification failed for user ${userId}: ${resultText}`);
     }
   } catch (err) {

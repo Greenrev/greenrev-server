@@ -7,7 +7,9 @@ const verificationRequestSchema = new Schema(
     status: { type: String, required: true, enum: ["pending", "approved", "rejected", "info_requested"], default: "pending" },
     
     // Level 2 (Individual)
-    nin: { type: String, required: false },
+    documentType: { type: String, enum: ["NIN", "PASSPORT", "DRIVERS_LICENSE"], required: false },
+    documentNumber: { type: String, required: false },
+    nin: { type: String, required: false }, // Legacy
     selfieUrl: { type: String, required: false },
     
     // Level 3 (Business)
@@ -18,6 +20,9 @@ const verificationRequestSchema = new Schema(
     bankAccountNumber: { type: String, required: false },
     bankCode: { type: String, required: false },
     
+    // Smile ID job this request was submitted as — lets the webhook update the right request.
+    smileJobId: { type: String, required: false, index: true },
+
     // Admin fields
     reviewedBy: { type: Schema.Types.ObjectId, ref: "User", required: false },
     adminNotes: { type: String, required: false },

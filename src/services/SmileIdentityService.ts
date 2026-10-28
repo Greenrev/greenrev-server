@@ -37,17 +37,22 @@ export interface SmileResult {
   success: boolean;
   message: string;
   jobId?: string;
+  /** True when the job was queued and the outcome will arrive via the webhook. */
+  pending?: boolean;
 }
+
+/** Smile ID result codes that mean the ID matched (Exact / Partial Match). */
+export const SMILE_PASS_CODES = ["1010", "1011"];
 
 // ─── Mock Implementation ──────────────────────────────────────────────────────
 
-async function mockVerifyIndividual(nin: string): Promise<SmileResult> {
+async function mockVerifyIndividual(idType: string, idNumber: string): Promise<SmileResult> {
   await new Promise((r) => setTimeout(r, 1500));
-  if (nin === "11111111111") throw new Error("Smile ID Network Timeout");
-  if (nin === "00000000000") {
-    return { success: false, message: "Face Mismatch: The selfie does not match the NIN database photo." };
+  if (idNumber === "11111111111") throw new Error("Smile ID Network Timeout");
+  if (idNumber === "00000000000") {
+    return { success: false, message: `Face Mismatch: The selfie does not match the ${idType} database photo.` };
   }
-  return { success: true, message: "[MOCK] Biometric KYC passed." };
+  return { success: true, message: `[MOCK] Biometric KYC passed for ${idType}.` };
 }
 
 async function mockVerifyBusiness(cacNumber: string): Promise<SmileResult> {
@@ -61,7 +66,7 @@ async function mockVerifyBusiness(cacNumber: string): Promise<SmileResult> {
 
 // ─── Live Implementation ──────────────────────────────────────────────────────
 
-async function liveVerifyIndividual(nin: string, userId: string): Promise<SmileResult> {
+async function liveVerifyIndividual(idType: string, idNumber: string, userId: string): Promise<SmileResult> {
   const idApi = new IDApi(PARTNER_ID, API_KEY, SID_SERVER);
   const jobId = crypto.randomUUID();
 
@@ -72,11 +77,11 @@ async function liveVerifyIndividual(nin: string, userId: string): Promise<SmileR
   };
 
   const idInfo = {
-    first_name: "",       // will be matched from NIN record by Smile ID
+    first_name: "",       // will be matched from database by Smile ID
     last_name: "",
     country: "NG",
-    id_type: "NIN",
-    id_number: nin,
+    id_type: idType,
+    id_number: idNumber,
     entered: true,
   };
 
@@ -86,18 +91,17 @@ async function liveVerifyIndividual(nin: string, userId: string): Promise<SmileR
 
   // Async path: queued for processing via webhook
   if (CALLBACK_URL) {
-    return { success: true, message: "Verification submitted. You will be notified shortly.", jobId };
+    return { success: true, pending: true, message: "Verification submitted. You will be notified shortly.", jobId };
   }
 
   // Synchronous path: check result immediately
   const resultCode = response?.ResultCode ?? response?.result_code;
   const resultText = response?.ResultText ?? response?.result_text ?? "Verification complete.";
 
-  if (resultCode === "1012" || resultCode === "1020") {
-    return { success: false, message: resultText };
+  // Only 1010 (Exact Match) and 1011 (Partial Match) are passes — anything else is a failure.
+  if (!SMILE_PASS_CODES.includes(String(resultCode))) {
+    return { success: false, message: resultText, jobId };
   }
-
-  // Result codes 1010 (Exact Match), 1011 (Partial Match) are successes
   return { success: true, message: resultText, jobId };
 }
 
@@ -123,16 +127,16 @@ async function liveVerifyBusiness(cacNumber: string, userId: string): Promise<Sm
     : await idApi.submit_job(partnerParams, idInfo);
 
   if (CALLBACK_URL) {
-    return { success: true, message: "Business verification submitted. You will be notified shortly.", jobId };
+    return { success: true, pending: true, message: "Business verification submitted. You will be notified shortly.", jobId };
   }
 
   const resultCode = response?.ResultCode ?? response?.result_code;
   const resultText = response?.ResultText ?? response?.result_text ?? "Business verification complete.";
 
-  if (resultCode === "1012" || resultCode === "1020") {
-    return { success: false, message: resultText };
+  // Only 1010 (Exact Match) and 1011 (Partial Match) are passes — anything else is a failure.
+  if (!SMILE_PASS_CODES.includes(String(resultCode))) {
+    return { success: false, message: resultText, jobId };
   }
-
   return { success: true, message: resultText, jobId };
 }
 
@@ -144,21 +148,23 @@ export class SmileIdentityService {
   }
 
   /**
-   * Verify an individual's NIN + Selfie via Smile ID Biometric KYC.
-   * @param nin  - The 11-digit National Identification Number
+   * Verify an individual's Identity + Selfie via Smile ID Biometric KYC.
+   * @param idType - "NIN", "PASSPORT", or "DRIVERS_LICENSE"
+   * @param idNumber  - The ID number for the selected document type
    * @param selfieUrl - Signed URL of the liveness selfie captured via the web SDK
    * @param userId - Your internal user ID (used as Smile ID's partner user_id)
    */
   static async verifyIndividual(
-    nin: string,
+    idType: string,
+    idNumber: string,
     selfieUrl: string,
     userId?: string,
   ): Promise<SmileResult> {
     if (USE_MOCK) {
       console.log("[SmileID] Running in MOCK mode. Set SMILE_USE_MOCK=false to go live.");
-      return mockVerifyIndividual(nin);
+      return mockVerifyIndividual(idType, idNumber);
     }
-    return liveVerifyIndividual(nin, userId ?? nin);
+    return liveVerifyIndividual(idType, idNumber, userId ?? idNumber);
   }
 
   /**

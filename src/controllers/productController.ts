@@ -3,6 +3,7 @@ import { Product } from "../models/Product";
 import { User } from "../models/User";
 import type { CustomReq } from "../types/auth";
 import { sendSuccess, sendError } from "../utils/apiResponse";
+import { recordVendorListingValues } from "../services/listingOptionsService";
 
 export async function createProduct(req: CustomReq, res: Response) {
   try {
@@ -72,6 +73,7 @@ export async function createProduct(req: CustomReq, res: Response) {
     });
 
     await product.save();
+    trackNewListingValues(product, req.user);
 
     return sendSuccess(res, 201, product);
   } catch (error) {
@@ -152,6 +154,13 @@ export async function getAllProducts(req: CustomReq, res: Response) {
       .sort({ createdAt: -1 })
       .lean();
 
+    if (!req.user) {
+      products.forEach(p => {
+        delete (p as any).vendorId;
+        delete (p as any).vendorName;
+      });
+    }
+
     return sendSuccess(res, 200, { products });
   } catch (error) {
     console.error("Error fetching all products:", error);
@@ -185,6 +194,12 @@ export async function getProduct(req: CustomReq, res: Response) {
       ...product,
       vendorPhone: vendor?.phone ?? null,
     };
+
+    if (!req.user) {
+      delete (productWithContact as any).vendorId;
+      delete (productWithContact as any).vendorName;
+      delete (productWithContact as any).vendorPhone;
+    }
 
     return sendSuccess(res, 200, productWithContact);
   } catch (error) {
@@ -250,6 +265,7 @@ export async function updateProduct(req: CustomReq, res: Response) {
     });
 
     await product.save();
+    trackNewListingValues(product, req.user);
 
     return sendSuccess(res, 200, product);
   } catch (error) {
@@ -347,4 +363,10 @@ export async function bulkDeleteProducts(req: CustomReq, res: Response) {
       message: "Failed to bulk delete products",
     });
   }
+}
+
+/** Queues values the vendor typed that aren't in the managed dropdown lists for admin review. Never blocks the save. */
+function trackNewListingValues(product: Parameters<typeof recordVendorListingValues>[0], user: { id: string; role: string }) {
+  if (user.role !== "vendor") return;
+  recordVendorListingValues(product, user.id).catch((err) => console.error("Failed to record new listing values:", err));
 }
