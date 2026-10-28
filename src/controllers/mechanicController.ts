@@ -29,6 +29,9 @@ export async function getProfile(req: CustomReq, res: Response) {
       address: user.address ?? "",
       lat: user.lat ?? 0,
       lng: user.lng ?? 0,
+      state: user.state ?? "",
+      serviceRadiusKm: user.serviceRadiusKm ?? 25,
+      locationPrivacy: user.locationPrivacy ?? "exact",
       profileImage: user.profileImage ?? null,
     },
   });
@@ -81,37 +84,79 @@ export async function updateProfile(req: CustomReq, res: Response) {
   }
 }
 
+export const SERVICE_RADII_KM = [0, 5, 10, 25, 50, 100] as const;
+
+function optionalText(value: unknown, field: string, max: number): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") throw new ApiError(400, "VALIDATION_ERROR", `${field} must be text`);
+  const v = value.trim().replace(/\s+/g, " ");
+  if (v.length > max) throw new ApiError(400, "VALIDATION_ERROR", `${field} is too long`);
+  return v;
+}
+
+function coordinate(value: unknown, field: string, limit: number): number {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (typeof n !== "number" || !Number.isFinite(n) || Math.abs(n) > limit) {
+    throw new ApiError(400, "VALIDATION_ERROR", `${field} must be between -${limit} and ${limit}`);
+  }
+  return Math.round(n * 1e6) / 1e6;
+}
+
+/** PATCH /mechanic/location — the map pin is required; address fields describe it. */
 export async function updateLocation(req: CustomReq, res: Response) {
   if (!req.user) {
     throw new ApiError(401, "UNAUTHENTICATED", "Authentication required");
   }
 
-  const { city, country, address, lat, lng } = req.body as Record<string, unknown>;
+  const body = req.body as Record<string, unknown>;
+  const lat = coordinate(body.lat, "Latitude", 90);
+  const lng = coordinate(body.lng, "Longitude", 180);
+  if (lat === 0 && lng === 0) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Drop the pin on your workshop before saving");
+  }
+
+  const address = optionalText(body.address, "Street address", 200);
+  const city = optionalText(body.city, "City", 80);
+  const state = optionalText(body.state, "State", 80);
+  const country = optionalText(body.country, "Country", 80);
+
+  let serviceRadiusKm: number | undefined;
+  if (body.serviceRadiusKm !== undefined) {
+    serviceRadiusKm = Number(body.serviceRadiusKm);
+    if (!SERVICE_RADII_KM.includes(serviceRadiusKm as (typeof SERVICE_RADII_KM)[number])) {
+      throw new ApiError(400, "VALIDATION_ERROR", `Service radius must be one of ${SERVICE_RADII_KM.join(", ")} km`);
+    }
+  }
+  const privacy = body.locationPrivacy;
+  if (privacy !== undefined && privacy !== "exact" && privacy !== "approximate") {
+    throw new ApiError(400, "VALIDATION_ERROR", 'locationPrivacy must be "exact" or "approximate"');
+  }
 
   const user = await User.findById(req.user.id);
   if (!user) {
     throw new ApiError(404, "USER_NOT_FOUND", "User not found");
   }
 
-  if (typeof city === "string") user.city = city;
-  if (typeof country === "string") user.country = country;
-  if (typeof address === "string") user.address = address;
-  
-  if (typeof lat === "number") user.lat = lat;
-  else if (typeof lat === "string" && !isNaN(Number(lat))) user.lat = Number(lat);
-  
-  if (typeof lng === "number") user.lng = lng;
-  else if (typeof lng === "string" && !isNaN(Number(lng))) user.lng = Number(lng);
-
+  user.lat = lat;
+  user.lng = lng;
+  if (address !== undefined) user.address = address;
+  if (city !== undefined) user.city = city;
+  if (state !== undefined) user.state = state;
+  if (country !== undefined) user.country = country;
+  if (serviceRadiusKm !== undefined) user.serviceRadiusKm = serviceRadiusKm;
+  if (privacy !== undefined) user.locationPrivacy = privacy;
   await user.save();
 
   return sendSuccess(res, 200, {
     location: {
-      city: user.city ?? "",
-      country: user.country ?? "",
       address: user.address ?? "",
-      lat: user.lat ?? 0,
-      lng: user.lng ?? 0,
+      city: user.city ?? "",
+      state: user.state ?? "",
+      country: user.country ?? "",
+      lat: user.lat,
+      lng: user.lng,
+      serviceRadiusKm: user.serviceRadiusKm ?? 25,
+      locationPrivacy: user.locationPrivacy ?? "exact",
     },
   });
 }

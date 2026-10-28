@@ -33,6 +33,11 @@ const userSchema = new Schema(
     address: { type: String, required: false, default: null },
     lat: { type: Number, required: false, default: null },
     lng: { type: Number, required: false, default: null },
+    state: { type: String, required: false, default: null },
+    // 0 = will travel anywhere
+    serviceRadiusKm: { type: Number, required: false, default: 25 },
+    // "approximate" hides the street address and blurs the map pin to ~1 km for guests and customers
+    locationPrivacy: { type: String, enum: ["exact", "approximate"], required: false, default: "exact" },
     specialization: { type: [String], required: false, default: [] },
     hourlyRate: { type: Number, required: false, default: null },
     availability: {

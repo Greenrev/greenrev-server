@@ -42,6 +42,10 @@ export const env = {
   get openRouterApiKey(): string | undefined {
     return optional("OPENROUTER_API_KEY") || undefined;
   },
+  // Server-side Google Geocoding key (no referrer restriction). Unset = OpenStreetMap's free geocoder.
+  get googleMapsServerKey(): string | undefined {
+    return optional("GOOGLE_MAPS_SERVER_KEY") || undefined;
+  },
   get listingModel(): string {
     return optional("OPENROUTER_LISTING_MODEL") || "google/gemini-2.5-flash";
   },

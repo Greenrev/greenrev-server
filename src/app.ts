@@ -23,6 +23,7 @@ import bookingRoutes from "./routes/bookingRoutes";
 import uploadRoutes from "./routes/uploadRoutes";
 import aiRoutes from "./routes/aiRoutes";
 import listingOptionRoutes from "./routes/listingOptionRoutes";
+import geoRoutes from "./routes/geoRoutes";
 import { verificationRoutes } from "./routes/verificationRoutes";
 import inquiryRoutes from "./routes/inquiryRoutes";
 import vendorRoutes from "./routes/vendorRoutes";
@@ -72,6 +73,7 @@ export function createApp() {
   app.use("/api/v1", uploadRoutes);
   app.use("/api/v1", aiRoutes);
   app.use("/api/v1", listingOptionRoutes);
+  app.use("/api/v1", geoRoutes);
   app.use("/api/v1/verification", verificationRoutes);
   app.use("/api/v1", inquiryRoutes);
   app.use("/api/v1", vendorRoutes);
