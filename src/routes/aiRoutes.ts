@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
-import { extractListingFields, audioFormatFor } from "../controllers/aiController";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { aiStatus, conciergeChat, extractListingFields, audioFormatFor } from "../controllers/aiController";
+import { optionalAuth, requireAuth, requireRole } from "../middleware/auth";
 import { slidingWindowRateLimit } from "../middleware/rateLimit";
 import { ApiError } from "../utils/errors";
 
@@ -60,5 +60,11 @@ router.post(
   parseFiles,
   extractListingFields,
 );
+
+// Burst guard; the real per-user/per-IP hourly and daily limits are enforced in the controller.
+const conciergeBurst = slidingWindowRateLimit({ windowMs: 60_000, max: Number(process.env.AI_CONCIERGE_BURST_PER_MINUTE) || 8 });
+
+router.get("/ai/status", aiStatus);
+router.post("/ai/concierge", conciergeBurst, optionalAuth, conciergeChat);
 
 export default router;

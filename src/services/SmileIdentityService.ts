@@ -19,6 +19,7 @@
 
 import { IDApi, JOB_TYPE } from "smile-identity-core";
 import crypto from "crypto";
+import { ApiError } from "../utils/errors";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -28,8 +29,24 @@ const CALLBACK_URL = process.env.SMILE_CALLBACK_URL ?? "";
 // sid_server: 0 = sandbox, 1 = production
 const SID_SERVER = process.env.NODE_ENV === "production" ? 1 : 0;
 
-// Toggle — stays "true" until real keys are provided
-const USE_MOCK = process.env.SMILE_USE_MOCK !== "false" || !PARTNER_ID || !API_KEY;
+// Outside production: simulate until real keys are provided.
+// In production: simulate ONLY when SMILE_USE_MOCK="true" is set on purpose — a missing key
+// must never quietly hand out "verified" badges.
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const HAS_KEYS = Boolean(PARTNER_ID && API_KEY);
+const USE_MOCK = IS_PRODUCTION ? process.env.SMILE_USE_MOCK === "true" : process.env.SMILE_USE_MOCK !== "false" || !HAS_KEYS;
+const MISCONFIGURED = IS_PRODUCTION && !USE_MOCK && !HAS_KEYS;
+if (MISCONFIGURED) {
+  console.error("[SmileID] SMILE_PARTNER_ID / SMILE_API_KEY are missing in production — identity verification is disabled.");
+} else if (IS_PRODUCTION && USE_MOCK) {
+  console.warn("[SmileID] SMILE_USE_MOCK=true in production — verifications are SIMULATED, not real.");
+}
+
+function ensureConfigured() {
+  if (MISCONFIGURED) {
+    throw new ApiError(503, "VERIFICATION_UNAVAILABLE", "Identity verification is temporarily unavailable. Please try again later.");
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -160,6 +177,7 @@ export class SmileIdentityService {
     selfieUrl: string,
     userId?: string,
   ): Promise<SmileResult> {
+    ensureConfigured();
     if (USE_MOCK) {
       console.log("[SmileID] Running in MOCK mode. Set SMILE_USE_MOCK=false to go live.");
       return mockVerifyIndividual(idType, idNumber);
@@ -176,6 +194,7 @@ export class SmileIdentityService {
     cacNumber: string,
     userId?: string,
   ): Promise<SmileResult> {
+    ensureConfigured();
     if (USE_MOCK) {
       console.log("[SmileID] Running in MOCK mode. Set SMILE_USE_MOCK=false to go live.");
       return mockVerifyBusiness(cacNumber);

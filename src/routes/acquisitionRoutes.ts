@@ -13,10 +13,12 @@ import { createReview, getVendorReviews } from "../controllers/reviewController"
 import { getMessages, sendMessage } from "../controllers/messageController";
 import { requireAuth } from "../middleware/auth";
 import { slidingWindowRateLimit } from "../middleware/rateLimit";
+import { userOrIp } from "../utils/rateKeys";
 
 const router = Router();
 
-const limiter = slidingWindowRateLimit({ windowMs: 60_000, max: 30 });
+// Per account: the deal chat polls for messages every few seconds while it's open.
+const limiter = slidingWindowRateLimit({ windowMs: 60_000, max: 120, keyGenerator: userOrIp });
 
 // Acquisition Requests
 router.post("/acquisition-requests", limiter, requireAuth, createRequest);

@@ -17,17 +17,27 @@ import {
 } from "../controllers/authController";
 import { requireAuth } from "../middleware/auth";
 import { slidingWindowRateLimit } from "../middleware/rateLimit";
+import { userOrIp } from "../utils/rateKeys";
 
 const router = Router();
 
-const authLimiter = slidingWindowRateLimit({
-  windowMs: 60_000,
-  max: 20,
-});
+// Many Nigerian mobile users share one public IP (carrier-grade NAT), so per-IP limits
+// must be generous; brute-force protection is per account / per email instead.
 
-const sensitiveLimiter = slidingWindowRateLimit({
-  windowMs: 60_000,
-  max: 8,
+// Session checks run on every page load: count them per signed-in account.
+const sessionLimiter = slidingWindowRateLimit({ windowMs: 60_000, max: 120, keyGenerator: userOrIp });
+
+// A whole network signing in at once is normal; a single IP hammering isn't.
+const networkLimiter = slidingWindowRateLimit({ windowMs: 60_000, max: 60 });
+
+// Guessing passwords or 6-digit PINs for one email: 10 tries per 15 minutes.
+const perEmailLimiter = slidingWindowRateLimit({
+  windowMs: 15 * 60_000,
+  max: 10,
+  keyGenerator: (req) => {
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    return email ? `email:${email}` : `ip:${req.ip ?? "unknown"}`;
+  },
 });
 
 // Admin sign-up checks a shared code — keep guessing slow.
@@ -36,24 +46,24 @@ const adminRegisterLimiter = slidingWindowRateLimit({
   max: 5,
 });
 
-router.post("/register", sensitiveLimiter, register);
+router.post("/register", networkLimiter, perEmailLimiter, register);
 router.post("/admin-register", adminRegisterLimiter, adminRegister);
-router.post("/login", sensitiveLimiter, login);
-router.post("/logout", authLimiter, logout);
-router.post("/refresh", authLimiter, refresh);
-router.get("/me", authLimiter, requireAuth, me);
+router.post("/login", networkLimiter, perEmailLimiter, login);
+router.post("/logout", sessionLimiter, logout);
+router.post("/refresh", sessionLimiter, refresh);
+router.get("/me", sessionLimiter, requireAuth, me);
 
-router.post("/email/verify", authLimiter, verifyEmail);
-router.post("/email/resend", authLimiter, resendVerification);
+router.post("/email/verify", networkLimiter, perEmailLimiter, verifyEmail);
+router.post("/email/resend", networkLimiter, perEmailLimiter, resendVerification);
 
-router.post("/password/forgot", authLimiter, forgotPassword);
-router.post("/password/reset", authLimiter, resetPassword);
+router.post("/password/forgot", networkLimiter, perEmailLimiter, forgotPassword);
+router.post("/password/reset", networkLimiter, resetPassword);
 
-router.get("/google", authLimiter, googleStart);
-router.get("/google/callback", authLimiter, googleCallback);
+router.get("/google", networkLimiter, googleStart);
+router.get("/google/callback", networkLimiter, googleCallback);
 
-router.post("/mfa/setup", authLimiter, requireAuth, mfaSetup);
-router.post("/mfa/verify", authLimiter, requireAuth, mfaVerify);
+router.post("/mfa/setup", sessionLimiter, requireAuth, mfaSetup);
+router.post("/mfa/verify", sessionLimiter, requireAuth, mfaVerify);
 
 export default router;
 

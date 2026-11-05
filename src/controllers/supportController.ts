@@ -100,12 +100,19 @@ export const updateTicketStatus = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { status, priority, assignedTo } = req.body;
 
+    if (status !== undefined && !["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"].includes(status)) {
+      return sendError(res, 400, { code: "VALIDATION_ERROR", message: "Invalid ticket status" });
+    }
+    if (priority !== undefined && !["LOW", "MEDIUM", "HIGH", "URGENT"].includes(priority)) {
+      return sendError(res, 400, { code: "VALIDATION_ERROR", message: "Invalid ticket priority" });
+    }
+
     const updateFields: any = {};
     if (status) updateFields.status = status;
     if (priority) updateFields.priority = priority;
     if (assignedTo !== undefined) updateFields.assignedTo = assignedTo || null;
 
-    const ticket = await Ticket.findByIdAndUpdate(id, updateFields, { new: true })
+    const ticket = await Ticket.findByIdAndUpdate(id, updateFields, { new: true, runValidators: true })
       .populate("userId", "name email")
       .populate("assignedTo", "name email");
 
