@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import mongoose from "mongoose";
+import { beginTransaction } from "../utils/transaction";
 import { AcquisitionRequest } from "../models/AcquisitionRequest";
 import { AcquisitionEvent } from "../models/AcquisitionEvent";
 import type { CustomReq } from "../types/auth";
@@ -55,8 +56,8 @@ export async function adminFlagAcquisition(req: CustomReq, res: Response) {
       return sendError(res, 400, { code: "VALIDATION_ERROR", message: "Reason is required" });
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const tx = await beginTransaction();
+    const session = tx.session;
     try {
       const updated = await AcquisitionRequest.findByIdAndUpdate(
         id,
@@ -64,7 +65,7 @@ export async function adminFlagAcquisition(req: CustomReq, res: Response) {
         { new: true, session },
       );
       if (!updated) {
-        await session.abortTransaction();
+        await tx.abort();
         return sendError(res, 404, { code: "NOT_FOUND", message: "Transaction not found" });
       }
 
@@ -83,13 +84,13 @@ export async function adminFlagAcquisition(req: CustomReq, res: Response) {
         { session },
       );
 
-      await session.commitTransaction();
+      await tx.commit();
       return sendSuccess(res, 200, { request: updated });
     } catch (e) {
-      await session.abortTransaction();
+      await tx.abort();
       throw e;
     } finally {
-      session.endSession();
+      tx.end();
     }
   } catch (error) {
     console.error("Error flagging acquisition:", error);
@@ -108,8 +109,8 @@ export async function adminResolveAcquisition(req: CustomReq, res: Response) {
       return sendError(res, 400, { code: "VALIDATION_ERROR", message: "Resolution is required" });
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const tx = await beginTransaction();
+    const session = tx.session;
     try {
       const updated = await AcquisitionRequest.findByIdAndUpdate(
         id,
@@ -117,7 +118,7 @@ export async function adminResolveAcquisition(req: CustomReq, res: Response) {
         { new: true, session },
       );
       if (!updated) {
-        await session.abortTransaction();
+        await tx.abort();
         return sendError(res, 404, { code: "NOT_FOUND", message: "Transaction not found" });
       }
 
@@ -136,13 +137,13 @@ export async function adminResolveAcquisition(req: CustomReq, res: Response) {
         { session },
       );
 
-      await session.commitTransaction();
+      await tx.commit();
       return sendSuccess(res, 200, { request: updated });
     } catch (e) {
-      await session.abortTransaction();
+      await tx.abort();
       throw e;
     } finally {
-      session.endSession();
+      tx.end();
     }
   } catch (error) {
     console.error("Error resolving acquisition:", error);
