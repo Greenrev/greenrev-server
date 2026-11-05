@@ -32,14 +32,20 @@ export async function getExperts(req: CustomReq, res: Response) {
 
     const mappedExperts = experts.map((expert) => {
       const ratings = ratingsMap.get(expert._id.toString());
+      // Experts who chose "approximate" get a ~1 km grid point and no street address.
+      const approximate = expert.locationPrivacy === "approximate";
+      const blur = (n: number | null | undefined) => (n ? (approximate ? Math.round(n * 100) / 100 : n) : 0);
       return {
         id: expert._id.toString(),
         name: expert.name || expert.garageName || expert.companyName || "Unknown Expert",
         city: expert.city || "Unknown City",
         country: expert.country || "Unknown Country",
-        address: expert.address || "",
-        lat: expert.lat || 0,
-        lng: expert.lng || 0,
+        state: expert.state || "",
+        address: approximate ? "" : expert.address || "",
+        lat: blur(expert.lat),
+        lng: blur(expert.lng),
+        approximateLocation: approximate,
+        serviceRadiusKm: expert.serviceRadiusKm ?? 25,
         specialization: expert.specialization || [],
         hourlyRate: expert.hourlyRate || 0,
         // Guests see the expert but not how to reach them off-platform.

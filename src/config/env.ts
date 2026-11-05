@@ -42,20 +42,9 @@ export const env = {
   get openRouterApiKey(): string | undefined {
     return optional("OPENROUTER_API_KEY") || undefined;
   },
-  get conciergeModel(): string {
-    return optional("OPENROUTER_CHAT_MODEL") || "google/gemma-4-31b-it";
-  },
-  // Concierge message limits. Guests are counted per IP, signed-in users per account.
-  get conciergeGuestQuota() {
-    return {
-      perHour: toInt(optional("AI_CONCIERGE_GUEST_PER_HOUR"), 10),
-      perDay: toInt(optional("AI_CONCIERGE_GUEST_PER_DAY"), 30),
-      // All guests on one IP together (shared mobile networks); applies when the app sends a device ID.
-      ipPerHour: toInt(optional("AI_CONCIERGE_GUEST_IP_PER_HOUR"), 120),
-    };
-  },
-  get conciergeUserQuota() {
-    return { perHour: toInt(optional("AI_CONCIERGE_USER_PER_HOUR"), 30), perDay: toInt(optional("AI_CONCIERGE_USER_PER_DAY"), 100) };
+  // Server-side Google Geocoding key (no referrer restriction). Unset = OpenStreetMap's free geocoder.
+  get googleMapsServerKey(): string | undefined {
+    return optional("GOOGLE_MAPS_SERVER_KEY") || undefined;
   },
   get listingModel(): string {
     return optional("OPENROUTER_LISTING_MODEL") || "google/gemini-2.5-flash";
