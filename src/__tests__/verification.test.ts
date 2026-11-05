@@ -6,6 +6,9 @@ import { VerificationRequest } from "../models/VerificationRequest";
 
 let mongo: MongoMemoryServer | null = null;
 
+// The mock Smile ID adds a 1.5 s simulated network delay per call.
+jest.setTimeout(30_000);
+
 describe("KYC verification", () => {
   beforeAll(async () => {
     mongo = await MongoMemoryServer.create();

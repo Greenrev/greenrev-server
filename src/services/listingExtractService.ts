@@ -1,5 +1,6 @@
 import { env } from "../config/env";
 import { ApiError } from "../utils/errors";
+import { OPENROUTER_BASE, openRouterHeaders, requireKey, upstreamError } from "./aiGateway";
 
 export type ListingCategory = "vehicle" | "part";
 
@@ -31,9 +32,10 @@ export type ExtractionResult = {
   fields: ExtractedListing;
   transcript?: string;
   warnings: string[];
+  /** Token/cost accounting from OpenRouter, for the usage log (not sent to clients). */
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
 };
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const VEHICLE_FIELDS = `
 - name: listing title, e.g. "2019 Toyota Camry XSE" (make + model + trim; include year if known)
@@ -202,9 +204,7 @@ export async function extractListing(input: {
   images: ListingImage[];
   audio?: ListingAudio;
 }): Promise<ExtractionResult> {
-  if (!env.openRouterApiKey) {
-    throw new ApiError(503, "AI_UNAVAILABLE", "AI listing assistant is not configured");
-  }
+  const key = requireKey();
 
   const content: unknown[] = [
     {
@@ -231,18 +231,14 @@ export async function extractListing(input: {
   const timeout = setTimeout(() => controller.abort(), 60_000);
   let res: globalThis.Response;
   try {
-    res = await fetch(OPENROUTER_URL, {
+    res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
       method: "POST",
       signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${env.openRouterApiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": env.frontendUrl,
-        "X-Title": "GreenRev Listing Assistant",
-      },
+      headers: openRouterHeaders(key, "GreenRev Listing Assistant"),
       body: JSON.stringify({
         model: env.listingModel,
         temperature: 0.1,
+        usage: { include: true },
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt(input.category, input.images.length > 0, Boolean(input.audio)) },
@@ -257,13 +253,12 @@ export async function extractListing(input: {
     clearTimeout(timeout);
   }
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error("OpenRouter listing extract failed:", res.status, body.slice(0, 500));
-    throw new ApiError(502, "AI_FAILED", "The AI couldn't read that. Please try again.");
-  }
+  if (!res.ok) throw upstreamError(res.status, await res.text().catch(() => ""));
 
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const json = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+    usage?: ExtractionResult["usage"];
+  };
   const text = json.choices?.[0]?.message?.content ?? "";
   let parsed: unknown;
   try {
@@ -272,5 +267,5 @@ export async function extractListing(input: {
     console.error("OpenRouter listing extract returned non-JSON:", text.slice(0, 500));
     throw new ApiError(502, "AI_FAILED", "The AI couldn't read that. Please try again.");
   }
-  return sanitizeExtraction(parsed, input.category);
+  return { ...sanitizeExtraction(parsed, input.category), usage: json.usage };
 }

@@ -4,6 +4,9 @@ import { sendSuccess, sendError } from "../utils/apiResponse";
 import type { CustomReq } from "../types/auth";
 import { uploadImage } from "../utils/cloudinary";
 import { ExpertMessage } from "../models/ExpertMessage";
+import { Product } from "../models/Product";
+import { RefreshToken } from "../models/RefreshToken";
+import { AuthToken } from "../models/AuthToken";
 
 export async function getProfile(req: CustomReq, res: Response) {
   try {
@@ -99,6 +102,14 @@ export async function deleteProfile(req: CustomReq, res: Response) {
         message: "User not found",
       });
     }
+
+    // Sign the account out everywhere, and take a vendor's listings down with it —
+    // otherwise buyers can still find and request items from a seller who no longer exists.
+    await Promise.all([
+      RefreshToken.deleteMany({ userId: user._id }),
+      AuthToken.deleteMany({ userId: user._id }),
+      user.role === "vendor" ? Product.deleteMany({ vendorId: user._id }) : Promise.resolve(),
+    ]);
 
     // Clear cookies
     res.clearCookie("access_token", { path: "/" });

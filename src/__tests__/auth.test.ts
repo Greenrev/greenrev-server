@@ -50,7 +50,8 @@ describe("auth", () => {
     const user = await User.findOne({ email }).lean();
     expect(user).toBeTruthy();
 
-    const knownToken = "verify-token-1234567890";
+    // Verification is a 6-digit PIN emailed to the user, checked together with the email.
+    const knownToken = "482913";
     await AuthToken.deleteMany({ userId: user!._id, type: "email_verify" });
     await AuthToken.create({
       userId: user!._id,
@@ -61,7 +62,7 @@ describe("auth", () => {
 
     const verify = await request(app)
       .post("/api/v1/auth/email/verify")
-      .send({ token: knownToken });
+      .send({ pin: knownToken, email });
     expect(verify.status).toBe(200);
     expect(verify.body.success).toBe(true);
 
