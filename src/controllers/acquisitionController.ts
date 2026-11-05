@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import mongoose from "mongoose";
+import { beginTransaction } from "../utils/transaction";
 import { AcquisitionRequest } from "../models/AcquisitionRequest";
 import { AcquisitionEvent } from "../models/AcquisitionEvent";
 import { Product } from "../models/Product";
@@ -92,8 +92,8 @@ export async function createRequest(req: CustomReq, res: Response) {
       }
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const tx = await beginTransaction();
+    const session = tx.session;
     try {
       const created = await AcquisitionRequest.create(
         [
@@ -136,7 +136,7 @@ export async function createRequest(req: CustomReq, res: Response) {
         { session },
       );
 
-      await session.commitTransaction();
+      await tx.commit();
 
       // Send email to vendor
       try {
@@ -154,10 +154,10 @@ export async function createRequest(req: CustomReq, res: Response) {
 
       return sendSuccess(res, 201, { request: created[0] });
     } catch (e) {
-      await session.abortTransaction();
+      await tx.abort();
       throw e;
     } finally {
-      session.endSession();
+      tx.end();
     }
   } catch (error) {
     console.error("Error creating acquisition request:", error);
@@ -293,8 +293,8 @@ export async function vendorAccept(req: CustomReq, res: Response) {
     }
 
     const { id } = req.params;
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const tx = await beginTransaction();
+    const session = tx.session;
     try {
       const updated = await AcquisitionRequest.findOneAndUpdate(
         { _id: id, vendorId: req.user.id, status: "pending" },
@@ -308,7 +308,7 @@ export async function vendorAccept(req: CustomReq, res: Response) {
         { new: true, session },
       );
       if (!updated) {
-        await session.abortTransaction();
+        await tx.abort();
         return sendError(res, 400, {
           code: "INVALID_STATE",
           message: "Request cannot be accepted",
@@ -330,13 +330,13 @@ export async function vendorAccept(req: CustomReq, res: Response) {
         { session },
       );
 
-      await session.commitTransaction();
+      await tx.commit();
       return sendSuccess(res, 200, { request: updated });
     } catch (e) {
-      await session.abortTransaction();
+      await tx.abort();
       throw e;
     } finally {
-      session.endSession();
+      tx.end();
     }
   } catch (error) {
     console.error("Error accepting request:", error);
@@ -384,8 +384,8 @@ export async function uploadReceipt(req: CustomReq, res: Response) {
       });
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const tx = await beginTransaction();
+    const session = tx.session;
     try {
       const updated = await AcquisitionRequest.findOneAndUpdate(
         { _id: id, customerId: req.user.id, status: "accepted" },
@@ -399,7 +399,7 @@ export async function uploadReceipt(req: CustomReq, res: Response) {
         { new: true, session },
       );
       if (!updated) {
-        await session.abortTransaction();
+        await tx.abort();
         return sendError(res, 400, {
           code: "INVALID_STATE",
           message: "Receipt cannot be uploaded",
@@ -421,13 +421,13 @@ export async function uploadReceipt(req: CustomReq, res: Response) {
         { session },
       );
 
-      await session.commitTransaction();
+      await tx.commit();
       return sendSuccess(res, 200, { request: updated });
     } catch (e) {
-      await session.abortTransaction();
+      await tx.abort();
       throw e;
     } finally {
-      session.endSession();
+      tx.end();
     }
   } catch (error) {
     console.error("Error uploading receipt:", error);
@@ -468,8 +468,8 @@ export async function vendorConfirmPayment(req: CustomReq, res: Response) {
       });
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const tx = await beginTransaction();
+    const session = tx.session;
     try {
       const updated = await AcquisitionRequest.findOneAndUpdate(
         { _id: id, vendorId: req.user.id, status: "receipt_uploaded" },
@@ -484,7 +484,7 @@ export async function vendorConfirmPayment(req: CustomReq, res: Response) {
         { new: true, session },
       );
       if (!updated) {
-        await session.abortTransaction();
+        await tx.abort();
         return sendError(res, 400, {
           code: "INVALID_STATE",
           message: "Payment cannot be confirmed",
@@ -506,13 +506,13 @@ export async function vendorConfirmPayment(req: CustomReq, res: Response) {
         { session },
       );
 
-      await session.commitTransaction();
+      await tx.commit();
       return sendSuccess(res, 200, { request: updated });
     } catch (e) {
-      await session.abortTransaction();
+      await tx.abort();
       throw e;
     } finally {
-      session.endSession();
+      tx.end();
     }
   } catch (error) {
     console.error("Error confirming payment:", error);
@@ -539,8 +539,8 @@ export async function customerConfirmCompleted(req: CustomReq, res: Response) {
     }
 
     const { id } = req.params;
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const tx = await beginTransaction();
+    const session = tx.session;
     try {
       const updated = await AcquisitionRequest.findOneAndUpdate(
         { _id: id, customerId: req.user.id, status: "payment_confirmed" },
@@ -548,7 +548,7 @@ export async function customerConfirmCompleted(req: CustomReq, res: Response) {
         { new: true, session },
       );
       if (!updated) {
-        await session.abortTransaction();
+        await tx.abort();
         return sendError(res, 400, {
           code: "INVALID_STATE",
           message: "Transaction cannot be completed",
@@ -570,13 +570,13 @@ export async function customerConfirmCompleted(req: CustomReq, res: Response) {
         { session },
       );
 
-      await session.commitTransaction();
+      await tx.commit();
       return sendSuccess(res, 200, { request: updated });
     } catch (e) {
-      await session.abortTransaction();
+      await tx.abort();
       throw e;
     } finally {
-      session.endSession();
+      tx.end();
     }
   } catch (error) {
     console.error("Error completing transaction:", error);
